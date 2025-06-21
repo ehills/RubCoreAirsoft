@@ -1,9 +1,15 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { MapPin, Mail, Phone, Clock, Users, Target, Calendar } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { MapPin, Mail, Phone, LogIn } from "lucide-react";
+import AuthForm from "@/components/auth-form";
 
 export default function Landing() {
-  const handleLogin = () => {
-    window.location.href = "/api/login";
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+
+  const handleAuthSuccess = () => {
+    setIsAuthModalOpen(false);
+    window.location.reload();
   };
 
   return (
@@ -23,12 +29,22 @@ export default function Landing() {
             </div>
             
             <div className="flex items-center space-x-4">
-              <Button 
-                onClick={handleLogin}
-                className="bg-tactical-orange text-black hover:bg-orange-600 font-semibold"
-              >
-                LOGIN
-              </Button>
+              <Dialog open={isAuthModalOpen} onOpenChange={setIsAuthModalOpen}>
+                <DialogTrigger asChild>
+                  <Button 
+                    className="bg-tactical-orange text-black hover:bg-orange-600 font-semibold flex items-center space-x-2"
+                  >
+                    <LogIn className="w-4 h-4" />
+                    <span>LOGIN</span>
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle className="sr-only">Authentication</DialogTitle>
+                  </DialogHeader>
+                  <AuthForm onSuccess={handleAuthSuccess} />
+                </DialogContent>
+              </Dialog>
             </div>
           </div>
         </div>
@@ -52,12 +68,21 @@ export default function Landing() {
                 professional training, and camaraderie in New Zealand's most dynamic airsoft community.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
-                <Button 
-                  onClick={handleLogin}
-                  className="bg-tactical-orange text-black px-8 py-3 font-semibold hover:bg-orange-600"
-                >
-                  JOIN THE SQUAD
-                </Button>
+                <Dialog open={isAuthModalOpen} onOpenChange={setIsAuthModalOpen}>
+                  <DialogTrigger asChild>
+                    <Button 
+                      className="bg-tactical-orange text-black px-8 py-3 font-semibold hover:bg-orange-600"
+                    >
+                      JOIN THE SQUAD
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                      <DialogTitle className="sr-only">Authentication</DialogTitle>
+                    </DialogHeader>
+                    <AuthForm onSuccess={handleAuthSuccess} />
+                  </DialogContent>
+                </Dialog>
                 <Button 
                   variant="outline"
                   className="border-white text-white px-8 py-3 font-semibold hover:bg-white hover:text-black"
@@ -188,7 +213,19 @@ export default function Landing() {
               <h3 className="font-bold text-lg mb-4 font-mono">QUICK LINKS</h3>
               <ul className="space-y-2 text-gray-300">
                 <li><a href="#about" className="hover:text-tactical-orange transition-colors">About Us</a></li>
-                <li><button onClick={handleLogin} className="hover:text-tactical-orange transition-colors">Join Club</button></li>
+                <li>
+                  <Dialog open={isAuthModalOpen} onOpenChange={setIsAuthModalOpen}>
+                    <DialogTrigger asChild>
+                      <button className="hover:text-tactical-orange transition-colors">Join Club</button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-md">
+                      <DialogHeader>
+                        <DialogTitle className="sr-only">Authentication</DialogTitle>
+                      </DialogHeader>
+                      <AuthForm onSuccess={handleAuthSuccess} />
+                    </DialogContent>
+                  </Dialog>
+                </li>
               </ul>
             </div>
             

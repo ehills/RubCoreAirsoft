@@ -10,57 +10,71 @@ import {
   type EventAttendee,
   type Photo,
   type InsertPhoto,
+  type RegisterData,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and } from "drizzle-orm";
+import bcrypt from "bcryptjs";
 
 export interface IStorage {
-  // User operations (required for Replit Auth)
-  getUser(id: string): Promise<User | undefined>;
-  upsertUser(user: UpsertUser): Promise<User>;
+  // User operations
+  getUser(id: number): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  createUser(user: RegisterData): Promise<User>;
+  verifyPassword(email: string, password: string): Promise<User | null>;
   
   // Event operations
   getEvents(): Promise<Event[]>;
   getEvent(id: number): Promise<Event | undefined>;
-  createEvent(event: InsertEvent, createdBy: string): Promise<Event>;
-  updateEvent(id: number, event: Partial<InsertEvent>, userId: string): Promise<Event>;
-  deleteEvent(id: number, userId: string): Promise<void>;
+  createEvent(event: InsertEvent, createdBy: number): Promise<Event>;
+  updateEvent(id: number, event: Partial<InsertEvent>, userId: number): Promise<Event>;
+  deleteEvent(id: number, userId: number): Promise<void>;
   
   // Event attendance operations
   getEventAttendees(eventId: number): Promise<(EventAttendee & { user: User })[]>;
-  addEventAttendee(eventId: number, userId: string): Promise<EventAttendee>;
-  removeEventAttendee(eventId: number, userId: string): Promise<void>;
-  isUserAttending(eventId: number, userId: string): Promise<boolean>;
+  addEventAttendee(eventId: number, userId: number): Promise<EventAttendee>;
+  removeEventAttendee(eventId: number, userId: number): Promise<void>;
+  isUserAttending(eventId: number, userId: number): Promise<boolean>;
   
   // Photo operations
   getPhotos(): Promise<(Photo & { uploadedBy: User })[]>;
   getPhoto(id: number): Promise<Photo | undefined>;
-  createPhoto(photo: InsertPhoto, uploadedBy: string): Promise<Photo>;
-  updatePhoto(id: number, photo: Partial<InsertPhoto>, userId: string): Promise<Photo>;
-  deletePhoto(id: number, userId: string): Promise<void>;
-  getUserPhotos(userId: string): Promise<Photo[]>;
+  createPhoto(photo: InsertPhoto, uploadedBy: number): Promise<Photo>;
+  updatePhoto(id: number, photo: Partial<InsertPhoto>, userId: number): Promise<Photo>;
+  deletePhoto(id: number, userId: number): Promise<void>;
+  getUserPhotos(userId: number): Promise<Photo[]>;
 }
 
 export class DatabaseStorage implements IStorage {
   // User operations
-  async getUser(id: string): Promise<User | undefined> {
+  async getUser(id: number): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
   }
 
-  async upsertUser(userData: UpsertUser): Promise<User> {
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user;
+  }
+
+  async createUser(userData: RegisterData): Promise<User> {
+    const hashedPassword = await bcrypt.hash(userData.password, 10);
     const [user] = await db
       .insert(users)
-      .values(userData)
-      .onConflictDoUpdate({
-        target: users.id,
-        set: {
-          ...userData,
-          updatedAt: new Date(),
-        },
+      .values({
+        ...userData,
+        password: hashedPassword,
       })
       .returning();
     return user;
+  }
+
+  async verifyPassword(email: string, password: string): Promise<User | null> {
+    const user = await this.getUserByEmail(email);
+    if (!user) return null;
+    
+    const isValid = await bcrypt.compare(password, user.password);
+    return isValid ? user : null;
   }
 
   // Event operations
@@ -73,7 +87,7 @@ export class DatabaseStorage implements IStorage {
     return event;
   }
 
-  async createEvent(event: InsertEvent, createdBy: string): Promise<Event> {
+  async createEvent(event: InsertEvent, createdBy: number): Promise<Event> {
     const [newEvent] = await db
       .insert(events)
       .values({ ...event, createdBy })
@@ -81,7 +95,7 @@ export class DatabaseStorage implements IStorage {
     return newEvent;
   }
 
-  async updateEvent(id: number, event: Partial<InsertEvent>, userId: string): Promise<Event> {
+  async updateEvent(id: number, event: Partial<InsertEvent>, userId: number): Promise<Event> {
     const [updatedEvent] = await db
       .update(events)
       .set({ ...event, updatedAt: new Date() })
@@ -93,7 +107,7 @@ export class DatabaseStorage implements IStorage {
     return updatedEvent;
   }
 
-  async deleteEvent(id: number, userId: string): Promise<void> {
+  async deleteEvent(id: number, userId: number): Promise<void> {
     const result = await db
       .delete(events)
       .where(and(eq(events.id, id), eq(events.createdBy, userId)));
@@ -114,7 +128,7 @@ export class DatabaseStorage implements IStorage {
       .where(eq(eventAttendees.eventId, eventId));
   }
 
-  async addEventAttendee(eventId: number, userId: string): Promise<EventAttendee> {
+  async addEventAttendee(eventId: number, userId: number): Promise<EventAttendee> {
     const [attendee] = await db
       .insert(eventAttendees)
       .values({ eventId, userId })
@@ -122,13 +136,13 @@ export class DatabaseStorage implements IStorage {
     return attendee;
   }
 
-  async removeEventAttendee(eventId: number, userId: string): Promise<void> {
+  async removeEventAttendee(eventId: number, userId: number): Promise<void> {
     await db
       .delete(eventAttendees)
       .where(and(eq(eventAttendees.eventId, eventId), eq(eventAttendees.userId, userId)));
   }
 
-  async isUserAttending(eventId: number, userId: string): Promise<boolean> {
+  async isUserAttending(eventId: number, userId: number): Promise<boolean> {
     const [attendee] = await db
       .select()
       .from(eventAttendees)
@@ -173,7 +187,7 @@ export class DatabaseStorage implements IStorage {
     return photo;
   }
 
-  async createPhoto(photo: InsertPhoto, uploadedBy: string): Promise<Photo> {
+  async createPhoto(photo: InsertPhoto, uploadedBy: number): Promise<Photo> {
     const [newPhoto] = await db
       .insert(photos)
       .values({ ...photo, uploadedBy })
@@ -181,7 +195,7 @@ export class DatabaseStorage implements IStorage {
     return newPhoto;
   }
 
-  async updatePhoto(id: number, photo: Partial<InsertPhoto>, userId: string): Promise<Photo> {
+  async updatePhoto(id: number, photo: Partial<InsertPhoto>, userId: number): Promise<Photo> {
     const [updatedPhoto] = await db
       .update(photos)
       .set({ ...photo, updatedAt: new Date() })
@@ -193,13 +207,13 @@ export class DatabaseStorage implements IStorage {
     return updatedPhoto;
   }
 
-  async deletePhoto(id: number, userId: string): Promise<void> {
+  async deletePhoto(id: number, userId: number): Promise<void> {
     await db
       .delete(photos)
       .where(and(eq(photos.id, id), eq(photos.uploadedBy, userId)));
   }
 
-  async getUserPhotos(userId: string): Promise<Photo[]> {
+  async getUserPhotos(userId: number): Promise<Photo[]> {
     return await db.select().from(photos).where(eq(photos.uploadedBy, userId));
   }
 }

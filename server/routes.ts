@@ -2,8 +2,8 @@ import type { Express } from "express";
 import express from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
-import { insertEventSchema, insertPhotoSchema } from "@shared/schema";
+import { setupAuth, isAuthenticated } from "./auth";
+import { insertEventSchema, insertPhotoSchema, loginSchema, registerSchema } from "@shared/schema";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -38,17 +38,68 @@ const upload = multer({
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
-  await setupAuth(app);
+  setupAuth(app);
 
   // Serve uploaded files
   app.use('/uploads', express.static(uploadDir));
 
   // Auth routes
+  app.post('/api/auth/login', async (req, res) => {
+    try {
+      const { email, password } = loginSchema.parse(req.body);
+      const user = await storage.verifyPassword(email, password);
+      
+      if (!user) {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+
+      (req.session as any).userId = user.id;
+      const { password: _, ...userWithoutPassword } = user;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      console.error("Login error:", error);
+      res.status(400).json({ message: "Invalid login data" });
+    }
+  });
+
+  app.post('/api/auth/register', async (req, res) => {
+    try {
+      const userData = registerSchema.parse(req.body);
+      
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(userData.email);
+      if (existingUser) {
+        return res.status(400).json({ message: "User already exists" });
+      }
+
+      const user = await storage.createUser(userData);
+      (req.session as any).userId = user.id;
+      const { password: _, ...userWithoutPassword } = user;
+      res.status(201).json(userWithoutPassword);
+    } catch (error) {
+      console.error("Register error:", error);
+      res.status(400).json({ message: "Invalid registration data" });
+    }
+  });
+
+  app.post('/api/auth/logout', (req, res) => {
+    req.session.destroy((err) => {
+      if (err) {
+        return res.status(500).json({ message: "Could not log out" });
+      }
+      res.json({ message: "Logged out successfully" });
+    });
+  });
+
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = (req.session as any).userId;
       const user = await storage.getUser(userId);
-      res.json(user);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      const { password: _, ...userWithoutPassword } = user;
+      res.json(userWithoutPassword);
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
@@ -82,7 +133,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/events", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = (req.session as any).userId;
       const validatedData = insertEventSchema.parse(req.body);
       const event = await storage.createEvent(validatedData, userId);
       res.status(201).json(event);
@@ -95,7 +146,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/events/:id", isAuthenticated, async (req: any, res) => {
     try {
       const id = parseInt(req.params.id);
-      const userId = req.user.claims.sub;
+      const userId = (req.session as any).userId;
       const validatedData = insertEventSchema.partial().parse(req.body);
       const event = await storage.updateEvent(id, validatedData, userId);
       res.json(event);
@@ -108,7 +159,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/events/:id", isAuthenticated, async (req: any, res) => {
     try {
       const id = parseInt(req.params.id);
-      const userId = req.user.claims.sub;
+      const userId = (req.session as any).userId;
       await storage.deleteEvent(id, userId);
       res.status(204).send();
     } catch (error) {
@@ -132,7 +183,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/events/:id/attend", isAuthenticated, async (req: any, res) => {
     try {
       const eventId = parseInt(req.params.id);
-      const userId = req.user.claims.sub;
+      const userId = (req.session as any).userId;
       
       const isAttending = await storage.isUserAttending(eventId, userId);
       if (isAttending) {
@@ -150,7 +201,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/events/:id/attend", isAuthenticated, async (req: any, res) => {
     try {
       const eventId = parseInt(req.params.id);
-      const userId = req.user.claims.sub;
+      const userId = (req.session as any).userId;
       await storage.removeEventAttendee(eventId, userId);
       res.status(204).send();
     } catch (error) {
@@ -162,7 +213,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/events/:id/attending", isAuthenticated, async (req: any, res) => {
     try {
       const eventId = parseInt(req.params.id);
-      const userId = req.user.claims.sub;
+      const userId = (req.session as any).userId;
       const isAttending = await storage.isUserAttending(eventId, userId);
       res.json({ attending: isAttending });
     } catch (error) {
@@ -188,7 +239,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "No file uploaded" });
       }
 
-      const userId = req.user.claims.sub;
+      const userId = (req.session as any).userId;
       const { title } = req.body;
 
       const photoData = {
@@ -210,7 +261,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/photos/:id", isAuthenticated, async (req: any, res) => {
     try {
       const id = parseInt(req.params.id);
-      const userId = req.user.claims.sub;
+      const userId = (req.session as any).userId;
       const { title } = req.body;
       
       const photo = await storage.updatePhoto(id, { title }, userId);
@@ -224,7 +275,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/photos/:id", isAuthenticated, async (req: any, res) => {
     try {
       const id = parseInt(req.params.id);
-      const userId = req.user.claims.sub;
+      const userId = (req.session as any).userId;
       
       // Get photo to delete file
       const photo = await storage.getPhoto(id);
