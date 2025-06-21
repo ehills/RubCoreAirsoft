@@ -68,7 +68,7 @@ export default function EventForm({ event, onSuccess }: EventFormProps) {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          window.location.reload();
         }, 500);
         return;
       }

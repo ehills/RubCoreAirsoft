@@ -20,7 +20,7 @@ export default function Home() {
         variant: "destructive",
       });
       setTimeout(() => {
-        window.location.href = "/api/login";
+        window.location.reload();
       }, 500);
       return;
     }

@@ -73,7 +73,7 @@ export default function PhotoUpload({ onSuccess }: PhotoUploadProps) {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          window.location.reload();
         }, 500);
         return;
       }
