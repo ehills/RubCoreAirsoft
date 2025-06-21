@@ -7,6 +7,7 @@ import { insertEventSchema, insertPhotoSchema, loginSchema, registerSchema } fro
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import exifr from "exifr";
 
 // Configure multer for file uploads
 const uploadDir = path.join(process.cwd(), "uploads");
@@ -240,14 +241,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const userId = (req.session as any).userId;
-      const { title } = req.body;
+      const { title, description } = req.body;
+
+      // Extract EXIF data for date taken
+      let dateTaken = null;
+      try {
+        const filePath = path.join(uploadDir, req.file.filename);
+        const exifData = await exifr.parse(filePath);
+        if (exifData && exifData.DateTimeOriginal) {
+          dateTaken = new Date(exifData.DateTimeOriginal);
+        } else if (exifData && exifData.DateTime) {
+          dateTaken = new Date(exifData.DateTime);
+        }
+      } catch (exifError) {
+        console.log("Could not extract EXIF data:", exifError);
+      }
 
       const photoData = {
         title: title || req.file.originalname,
+        description: description || null,
         filename: req.file.filename,
         originalName: req.file.originalname,
         mimeType: req.file.mimetype,
         size: req.file.size,
+        dateTaken,
       };
 
       const photo = await storage.createPhoto(photoData, userId);
@@ -262,9 +279,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const userId = (req.session as any).userId;
-      const { title } = req.body;
+      const { title, description } = req.body;
       
-      const photo = await storage.updatePhoto(id, { title }, userId);
+      const photo = await storage.updatePhoto(id, { title, description }, userId);
       res.json(photo);
     } catch (error) {
       console.error("Error updating photo:", error);

@@ -13,6 +13,7 @@ import { Upload, X, Image } from "lucide-react";
 
 const uploadFormSchema = z.object({
   title: z.string().min(1, "Title is required"),
+  description: z.string().optional(),
 });
 
 type UploadFormData = z.infer<typeof uploadFormSchema>;
@@ -31,6 +32,7 @@ export default function PhotoUpload({ onSuccess }: PhotoUploadProps) {
     resolver: zodResolver(uploadFormSchema),
     defaultValues: {
       title: "",
+      description: "",
     },
   });
 
@@ -43,6 +45,9 @@ export default function PhotoUpload({ onSuccess }: PhotoUploadProps) {
       const formData = new FormData();
       formData.append("photo", selectedFile);
       formData.append("title", data.title);
+      if (data.description) {
+        formData.append("description", data.description);
+      }
 
       const response = await fetch("/api/photos", {
         method: "POST",
@@ -174,6 +179,25 @@ export default function PhotoUpload({ onSuccess }: PhotoUploadProps) {
                   <FormLabel>Photo Title</FormLabel>
                   <FormControl>
                     <Input placeholder="Enter photo title" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Description (Optional)</FormLabel>
+                  <FormControl>
+                    <textarea
+                      {...field}
+                      placeholder="Add a description for this photo..."
+                      className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-tactical-orange resize-none"
+                      rows={3}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
