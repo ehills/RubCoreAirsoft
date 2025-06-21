@@ -79,8 +79,8 @@ export default function Gallery() {
   });
 
   const editPhotoMutation = useMutation({
-    mutationFn: async ({ photoId, title }: { photoId: number; title: string }) => {
-      await apiRequest("PUT", `/api/photos/${photoId}`, { title });
+    mutationFn: async ({ photoId, title, description }: { photoId: number; title: string; description?: string }) => {
+      await apiRequest("PUT", `/api/photos/${photoId}`, { title, description });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/photos"] });
@@ -125,6 +125,7 @@ export default function Gallery() {
   const handleEdit = (photo: PhotoWithUser) => {
     setSelectedPhoto(photo);
     setEditTitle(photo.title);
+    setEditDescription(photo.description || "");
     setIsEditModalOpen(true);
   };
 
@@ -235,9 +236,16 @@ export default function Gallery() {
                     </div>
                     <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent p-4">
                       <h3 className="text-white font-semibold">{photo.title}</h3>
-                      <p className="text-gray-300 text-sm">
-                        by {photo.uploadedBy.firstName || photo.uploadedBy.email} • {formatTimeAgo(photo.createdAt)}
-                      </p>
+                      {photo.description && (
+                        <p className="text-gray-200 text-sm mb-1">{photo.description}</p>
+                      )}
+                      <div className="text-gray-300 text-xs space-y-1">
+                        <p>by {photo.uploadedBy.firstName || photo.uploadedBy.email}</p>
+                        {photo.dateTaken && (
+                          <p>Taken: {new Date(photo.dateTaken).toLocaleDateString()}</p>
+                        )}
+                        <p>Uploaded: {formatTimeAgo(photo.createdAt)}</p>
+                      </div>
                     </div>
                   </div>
                 );
@@ -260,9 +268,17 @@ export default function Gallery() {
                 alt={selectedPhoto.title}
                 className="w-full max-h-[60vh] object-contain rounded-lg"
               />
-              <div className="text-sm text-gray-600">
-                <p>Uploaded by {selectedPhoto.uploadedBy.firstName || selectedPhoto.uploadedBy.email}</p>
-                <p>{formatTimeAgo(selectedPhoto.createdAt)}</p>
+              <div className="space-y-2">
+                {selectedPhoto.description && (
+                  <p className="text-gray-700">{selectedPhoto.description}</p>
+                )}
+                <div className="text-sm text-gray-600 space-y-1">
+                  <p>Uploaded by {selectedPhoto.uploadedBy.firstName || selectedPhoto.uploadedBy.email}</p>
+                  {selectedPhoto.dateTaken && (
+                    <p>Photo taken: {new Date(selectedPhoto.dateTaken).toLocaleString()}</p>
+                  )}
+                  <p>Uploaded: {formatTimeAgo(selectedPhoto.createdAt)}</p>
+                </div>
               </div>
             </div>
           )}

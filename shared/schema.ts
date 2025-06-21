@@ -63,10 +63,12 @@ export const eventAttendees = pgTable("event_attendees", {
 export const photos = pgTable("photos", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
+  description: text("description"),
   filename: text("filename").notNull(),
   originalName: text("original_name").notNull(),
   mimeType: text("mime_type").notNull(),
   size: integer("size").notNull(),
+  dateTaken: timestamp("date_taken"),
   uploadedBy: integer("uploaded_by").notNull().references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -111,11 +113,14 @@ export const insertEventSchema = createInsertSchema(events).omit({
   createdBy: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  date: z.string().transform((val) => new Date(val)),
 });
 
 export const insertPhotoSchema = createInsertSchema(photos).omit({
   id: true,
   uploadedBy: true,
+  dateTaken: true,
   createdAt: true,
   updatedAt: true,
 });

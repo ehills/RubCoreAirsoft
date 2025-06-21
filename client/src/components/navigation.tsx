@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Menu, X } from "lucide-react";
+import { Menu, X, User } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Navigation() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [location] = useLocation();
+  const { user } = useAuth();
 
   const handleLogout = async () => {
     try {
@@ -13,7 +15,7 @@ export default function Navigation() {
         method: "POST",
         credentials: "include",
       });
-      window.location.reload();
+      window.location.href = "/";
     } catch (error) {
       console.error("Logout error:", error);
     }
@@ -51,13 +53,22 @@ export default function Navigation() {
                 {item.label}
               </Link>
             ))}
-            <Button
-              onClick={handleLogout}
-              variant="ghost"
-              className="hover:text-tactical-orange transition-colors"
-            >
-              Logout
-            </Button>
+            
+            {user && (
+              <div className="flex items-center space-x-3 text-sm">
+                <div className="flex items-center space-x-2 bg-gray-800 px-3 py-1 rounded">
+                  <User className="w-4 h-4 text-tactical-orange" />
+                  <span className="text-white">{user.email}</span>
+                </div>
+                <Button
+                  onClick={handleLogout}
+                  variant="ghost"
+                  className="hover:text-tactical-orange transition-colors"
+                >
+                  Logout
+                </Button>
+              </div>
+            )}
           </div>
 
           <div className="md:hidden">
